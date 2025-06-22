@@ -42,3 +42,17 @@ export class PoolManager {
     return out;
   }
 }
+
+const identityKeys = [
+  "male_1",
+  "male_2",
+  "male_3",
+  "male_4",
+  "female_1",
+  "female_2",
+  "female_3",
+  "female_4",
+];
+
+const poolManager = new PoolManager(identityKeys);
+export default poolManager;

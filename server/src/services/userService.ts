@@ -62,4 +62,5 @@ export class UserService {
 }
 
 // Instantiating
-export const userService = new UserService();
+const userService = new UserService();
+export default userService;
