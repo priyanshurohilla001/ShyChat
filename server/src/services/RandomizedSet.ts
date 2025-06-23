@@ -1,3 +1,4 @@
+import { number } from "zod";
 import { MatchPool } from "./MatchPool";
 
 export class RandomizedSet implements MatchPool {
@@ -24,6 +25,24 @@ export class RandomizedSet implements MatchPool {
     if (this.arr.length === 0) return null;
     const i = Math.floor(Math.random() * this.arr.length);
     return this.arr[i];
+  }
+
+  getRandomSubset(tries: number): string[] {
+    const subset: string[] = [];
+
+    const indices = new Set<number>();
+
+    const len = this.idx.size;
+
+    while (indices.size < Math.min(tries, len)) {
+      indices.add(Math.floor(Math.random() * len));
+    }
+
+    for (const i of indices) {
+      subset.push(this.arr[i]);
+    }
+
+    return subset;
   }
 
   size(): number {

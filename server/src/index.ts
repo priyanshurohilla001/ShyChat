@@ -18,5 +18,5 @@ const io = new Server(httpServer, {
 setupSocket(io);
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`Backend listening on port ${PORT}`);
 });

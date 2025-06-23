@@ -12,6 +12,24 @@ export class SimpleFilterSelector implements MatchSelector {
     private userService: UserService,
   ) {}
 
+  private isMutualMatch(candidate: User, user: User): boolean {
+    if (candidate.status !== "searching") return false;
+
+    if (
+      candidate.preferences.gender !== "any" &&
+      candidate.preferences.gender !== user.identity.gender
+    )
+      return false;
+
+    if (
+      candidate.preferences.years !== "any" &&
+      !candidate.preferences.years.includes(user.identity.year)
+    )
+      return false;
+
+    return true;
+  }
+
   findMatch(user: User): string | null {
     const { preferences } = user;
 
@@ -28,17 +46,28 @@ export class SimpleFilterSelector implements MatchSelector {
 
         if (!pool || pool.size() === 0) continue;
 
-        const candidateId = pool.getRandom();
+        const subset = pool.getRandomSubset(10);
 
-        if (!candidateId || candidateId === user.id) continue;
+        for (const gender of genderPrefs) {
+          for (const year of yearPrefs) {
+            const poolKey = `${gender}_${year}`;
+            const pool = this.poolManager.getPool(poolKey);
+            if (!pool || pool.size() === 0) continue;
 
-        const candidateResult = this.userService.getUser(candidateId);
-        if (!candidateResult.success) continue;
+            const subset = pool.getRandomSubset(10);
+            for (const candidateId of subset) {
+              if (!candidateId || candidateId === user.id) continue;
 
-        const candidate = candidateResult.data;
+              const candidateResult = this.userService.getUser(candidateId);
+              if (!candidateResult.success) continue;
 
-        if (candidate.status === "idle" || candidate.status === "searching") {
-          return candidate.id;
+              const candidate = candidateResult.data;
+
+              if (this.isMutualMatch(candidate, user)) {
+                return candidateId;
+              }
+            }
+          }
         }
       }
     }

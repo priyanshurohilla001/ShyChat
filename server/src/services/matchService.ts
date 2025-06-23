@@ -44,22 +44,28 @@ class MatchService {
       return { success: false, error: "Matched user is not available" };
     }
 
-    // Remove both from pool
-    poolManager.removeFromPool(user);
-    poolManager.removeFromPool(matchedUser);
+    if (user.status === "searching" && matchedUser.status === "searching") {
+      // Remove both from pool
+      poolManager.removeFromPool(user);
+      poolManager.removeFromPool(matchedUser);
 
-    // Update both users to in-call
-    userService.updateUser(user.id, {
-      status: "in-call",
-      peerId: matchedUser.id,
-    });
+      // Update both users to in-call
+      userService.updateUser(user.id, {
+        status: "in-call",
+        peerId: matchedUser.id,
+      });
 
-    userService.updateUser(matchedUser.id, {
-      status: "in-call",
-      peerId: user.id,
-    });
+      userService.updateUser(matchedUser.id, {
+        status: "in-call",
+        peerId: user.id,
+      });
 
-    return { success: true, data: matchedUser.id };
+      return { success: true, data: matchedUser.id };
+    }
+    return {
+      success: false,
+      error: "One or both users are no longer searching",
+    };
   }
 
   leave(userId: string): ServiceResult {

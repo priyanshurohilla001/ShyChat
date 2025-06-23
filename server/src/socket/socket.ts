@@ -24,7 +24,11 @@ export function setupSocket(
         const parsedResult = JoinPayloadSchema.safeParse(payload);
 
         if (!parsedResult.success) {
-          return callback({ success: false, error: "Invalid Payload" });
+          console.error("Zod validation failed:", parsedResult.error.errors);
+          return callback({
+            success: false,
+            error: "Invalid payload: " + parsedResult.error.message,
+          });
         }
 
         const join: JoinPayload = parsedResult.data;
@@ -44,6 +48,13 @@ export function setupSocket(
 
       // ─── START ────────────────────────
       socket.on("start", (callback) => {
+        const updateRes = userService.updateUser(userId, {
+          status: "searching",
+        });
+        if (!updateRes.success) {
+          return callback({ success: false, error: updateRes.error });
+        }
+
         const res = matchService.startSearch(userId);
         if (!res.success) {
           return callback({ success: false, error: res.error });
