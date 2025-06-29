@@ -1,0 +1,187 @@
+🎯 **PeerSpace Design System - Complete Brief**
+
+## 📝 **Project Overview**
+**PeerSpace** is a fast, anonymous, peer-to-peer video platform made for students inside a campus LAN. Dark-mode by default, with a sleek, privacy-first design that feels minimal, confident, and technically polished. Target audience: college students (specifically IIIT Kota). The app should feel personal, mysterious, welcoming, and ephemeral - NOT like a social media clone.
+
+## 🎨 **Design Philosophy**
+- **Less is more**: Bold typography, minimal classes, maximum impact
+- **Student-friendly**: Catch attention without being too professional
+- **Techy vibe**: Modern tech website aesthetic with big words and clean elements
+- **Consistent**: Use shadcn heavily with minimal custom styling
+- **Maintainable**: Write clean, efficient code with minimal class usage
+
+## 🎯 **Core Components**
+
+### **Logo Component** (`/components/ui/logo.tsx`)
+```tsx
+<Logo size="sm|md|lg" className="mx-auto" />
+```
+- Reusable across app (navigation, loading, hero)
+- Three sizes: sm (w-8 h-8), md (w-16 h-16), lg (w-24 h-24)
+- Primary colored rounded square with animated pulse dot
+
+### **AnimatedBackground Component** (`/components/ui/animated-background.tsx`)
+```tsx
+<AnimatedBackground />
+<AnimatedBackground className="opacity-5" /> // For busy screens
+```
+- Grid pattern representing campus LAN network
+- Glowing nodes = active peers ready to connect
+- Animated connection lines = peer-to-peer links forming
+- 60px spacing for modern, spacious feel
+
+## 🔤 **Typography System**
+- **Headings/Brand**: Space Grotesk (font-display) - techy, bold feel
+- **Body/UI**: Inter (default sans) - clean, readable
+- **Hero text**: `text-7xl` for maximum impact
+- **Hierarchy**: Large brand → descriptive copy → single CTA → subtle details
+
+## 🎨 **Color & Theme**
+- **Default**: Dark theme (swapped CSS variables in `:root`)
+- **Toggle**: Light theme available via `.light` class
+- **Colors**: Use shadcn theme tokens only (primary, muted-foreground, etc.)
+- **No custom colors**: Maintains consistency across components
+
+## 📱 **Layout Principles**
+- **Centered layouts**: Single-column focus with generous whitespace
+- **Mobile-first**: Simple responsive with padding adjustments
+- **Full-screen**: Each screen takes full viewport height
+- **Minimal navigation**: No headers/navs, state-driven screen switching
+
+## 🗣️ **Brand Voice & Copy**
+- **Tone**: Casual but confident, slightly sarcastic about college infrastructure
+- **Key messaging**:
+  - "Meet random people in your institute. No profiles, no history, just pure conversation."
+  - "An Institute of National Importance" - connecting students when WiFi permits
+- **Privacy focus**: Anonymous, ephemeral, local-only connections
+- **Technical emphasis**: Peer-to-peer, WebRTC powered, campus LAN
+
+## 🛠️ **Technical Stack**
+- **Framework**: React + Vite + TypeScript
+- **Styling**: Tailwind CSS v4 + shadcn/ui components
+- **Fonts**: Inter + Space Grotesk via Google Fonts CDN
+- **Theme**: Custom CSS variables with dark/light switching
+- **Icons**: Lucide React
+- **State**: Hook-based with Context providers
+
+## 📋 **Component Structure**
+```
+src/
+├── components/
+│   ├── ui/
+│   │   ├── logo.tsx          // Reusable brand logo
+│   │   └── animated-background.tsx  // Grid network pattern
+│   ├── LoginScreen.tsx       // Main entry point
+│   └── ThemeToggle.tsx       // Dark/light switcher
+├── context/
+│   └── ThemeProvider.tsx     // Theme state management
+└── hooks/                    // Custom hooks for app logic
+```
+
+## 🎯 **Key Design Elements**
+1. **Bold Typography**: Space Grotesk at large sizes for impact
+2. **Grid Background**: Network-themed animation reinforcing peer-to-peer concept
+3. **Minimal Cards**: shadcn Card components with minimal customization
+4. **Single CTA**: "Continue with College ID" as primary action
+5. **Subtle Animations**: Logo pulse, network node glowing, connection lines
+6. **Theme Toggle**: Top-right corner for easy switching
+
+## 🔧 **Usage Examples**
+```tsx
+// Standard page layout
+<div className="min-h-screen bg-background relative overflow-hidden">
+  <AnimatedBackground />
+  <div className="relative z-10 p-6">
+    <Logo className="mx-auto mb-8" />
+    <h1 className="font-display text-7xl font-bold text-center">
+      PeerSpace
+    </h1>
+  </div>
+</div>
+
+// Components installation
+npx shadcn@latest add button card dropdown-menu
+```
+
+## 🎪 **Brand Personality**
+- **Mysterious yet welcoming**: Privacy-first but approachable
+- **Technical confidence**: Modern engineering aesthetic
+- **Student humor**: Self-aware jokes about college infrastructure
+- **Ephemeral focus**: No permanent records, temporary connections
+- **Local network pride**: Campus LAN as a feature, not limitation
+
+## 💬 **Custom Response Messages**
+Error messages and notifications that match the **PeerSpace personality** - techy, confident, with just enough college humor to keep it real.
+
+### **Authentication Errors**
+```typescript
+// College email validation
+"Use your college email, not your mom's 💀"
+"Need that .edu swag for entry 🎓"
+"College email required - we're not Tinder"
+
+// Token issues
+"Token expired faster than dining hall pizza 🍕"
+"Auth token went MIA - try again"
+"Security check failed - suspicious activity detected"
+
+// Network authentication
+"Campus WiFi said 'nah fam' 📡"
+"Network connection having trust issues"
+"Auth server is taking a coffee break ☕"
+```
+
+### **Network & Connection**
+```typescript
+// Connection success
+"Welcome to the network ⚡"
+"Peer locked and loaded ⚡"
+"Connected to the digital underground"
+
+// Connection failures
+"Campus WiFi having an existential crisis 💀"
+"Network said 'nope' louder than expected"
+"Connection dropped harder than organic chemistry"
+"WiFi router needs therapy 📡"
+
+// Peer discovery
+"Scanning campus network... 🔍"
+"Hunting for brave souls online..."
+"Looking for peers in the digital void"
+```
+
+### **Privacy & Ephemeral Messaging**
+```typescript
+// Session reminders
+"Session will self-destruct on disconnect 👻"
+"Anonymous mode: activated 🥷"
+"No traces left behind - like you were never here"
+
+// Privacy confirmations
+"Conversation vanished into the void ✨"
+"Messages burned - NSA can't read this"
+"Privacy level: Fort Knox 🔒"
+```
+
+### **Campus Infrastructure Humor**
+```typescript
+// System issues
+"Something broke in the matrix"
+"Even our errors have errors right now"
+"Campus tech strikes again 🤦‍♂️"
+
+// Loading states
+"Convincing campus servers to cooperate..."
+"Bribing the WiFi router with good vibes"
+"Loading faster than hostel WiFi permits"
+```
+
+### **Writing Guidelines**
+- **Keep it short**: 1-2 lines max, punchy delivery
+- **Tech confidence**: Sound like you know what you're doing
+- **College context**: Reference campus life without being cringe
+- **Emoji sparingly**: 1 per message, choose wisely
+- **No corporate speak**: Avoid "We apologize for the inconvenience"
+- **Personality over perfection**: Slight sarcasm beats bland politeness
+
+This system creates a **consistent, maintainable, and engaging** design that resonates with college students while maintaining technical credibility and privacy focus.

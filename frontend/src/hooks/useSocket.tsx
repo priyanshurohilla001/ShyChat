@@ -10,7 +10,7 @@ import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
 
 // --- Configuration ---
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://localhost:8000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
 const NOT_CONNECTED_ERROR = "Not connected to server";
 
 // --- Type Definitions ---
@@ -143,14 +143,28 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     newSocket.on("disconnect", onDisconnect);
 
     return () => {
+      newSocket.off("connect", onConnect);
+      newSocket.off("connect_error", onConnectError);
+      newSocket.off("disconnect", onDisconnect);
       newSocket.disconnect();
     };
   }, []);
 
   const connect = useCallback(() => {
+    console.log("[SocketProvider] connect() called");
+    console.log("[SocketProvider] Current socket instance:", socket);
     if (socket && !socket.connected) {
       setIsLoading(true);
+      console.log(
+        "[SocketProvider] Attempting to connect. Socket connected before connect():",
+        socket.connected,
+      );
+
       socket.connect();
+      console.log(
+        "[SocketProvider] connect() called. Socket connected after connect():",
+        socket.connected,
+      );
     }
   }, [socket]);
 

@@ -138,6 +138,7 @@ export function MediaPermissionsProvider({
         isAudioMuted: false,
         isCameraOff: false,
         isLoading: false,
+        permission: "granted",
       }));
     } catch (err) {
       console.error("Media access error:", err);

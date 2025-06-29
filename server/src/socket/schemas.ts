@@ -30,14 +30,3 @@ export type Gender = z.infer<typeof GenderSchema>;
 export type Identity = z.infer<typeof IdentitySchema>;
 export type Preferences = z.infer<typeof PreferencesSchema>;
 export type JoinPayload = z.infer<typeof JoinPayloadSchema>;
-
-const lola = {
-  identity: {
-    gender: "male",
-    year: 2,
-  },
-  preferences: {
-    gender: "any",
-    years: "any",
-  },
-};

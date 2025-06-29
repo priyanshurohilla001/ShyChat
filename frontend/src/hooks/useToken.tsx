@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { jwtDecode } from "jwt-decode";
+import { toast } from "sonner";
 
 // ===================================================================================
 // DEVELOPER NOTE:
@@ -89,19 +90,32 @@ export function TokenProvider({ children }: { children: ReactNode }) {
     try {
       const decoded: DecodedToken = jwtDecode(googleToken);
 
-      if (!decoded.email || !decoded.email.endsWith(COLLEGE_EMAIL_DOMAIN)) {
+      if (!decoded.email) {
+        throw new Error("Report error");
+      }
+
+      if (!decoded.email.endsWith(COLLEGE_EMAIL_DOMAIN)) {
         throw new Error("Email is not a valid college email.");
       }
+
       if (!decoded.exp || Date.now() >= decoded.exp * 1000) {
         throw new Error("The provided Google token has already expired.");
       }
 
       localStorage.setItem(GOOGLE_TOKEN_KEY, googleToken);
       dispatch({ type: "LOGIN_SUCCESS", payload: decoded });
+
+      setTimeout(() => {
+        toast.error('Logged in. Campus WiFi gods have blessed you 🎉"');
+      }, 1000);
     } catch (error) {
       console.error("Failed to process Google token:", error);
       localStorage.removeItem(GOOGLE_TOKEN_KEY);
       dispatch({ type: "LOGOUT" });
+
+      setTimeout(() => {
+        toast.error("Use your college email, not your mom's 💀");
+      }, 1000);
       throw error;
     }
   }, []);
