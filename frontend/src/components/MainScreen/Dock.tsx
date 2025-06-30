@@ -122,7 +122,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
           );
           setDockState("InCallDock");
         } else {
-          toast.error("Matchmaking server is taking a nap 😴 (No match ID)");
+          toast.info("Now wait for getting picked...");
         }
       } else {
         toast.error(res.error || "Campus WiFi having an existential crisis 💀");
