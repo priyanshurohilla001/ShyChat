@@ -10,10 +10,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // server: {
-  //   hmr: {
-  //     protocol: "wss",
-  //     host: "192.168.2.101",
-  //   },
-  // },
+  server: {
+    hmr: {
+      protocol: "wss",
+      host: "192.168.2.101",
+    },
+  },
 });

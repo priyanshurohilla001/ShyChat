@@ -18,7 +18,6 @@ const ICE_SERVERS = {
 
 interface UseWebRTCOptions {
   localStream: MediaStream | null;
-  onIceCandidate: (candidate: RTCIceCandidate) => void;
 }
 
 interface WebRTCContextType {
@@ -30,6 +29,7 @@ interface WebRTCContextType {
   setRemoteDescription: (desc: RTCSessionDescriptionInit) => Promise<void>;
   remoteStream: MediaStream | null;
   closeConnection: () => void;
+  setOnIceCandidate: (handler: (candidate: RTCIceCandidate) => void) => void;
 }
 
 const WebRTCContext = createContext<WebRTCContextType | undefined>(undefined);
@@ -37,12 +37,26 @@ const WebRTCContext = createContext<WebRTCContextType | undefined>(undefined);
 export function WebRTCProvider({
   children,
   localStream,
-  onIceCandidate,
 }: {
   children: ReactNode;
 } & UseWebRTCOptions) {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  const candidateHandler = useRef<
+    ((candidate: RTCIceCandidate) => void) | null
+  >(null);
+  const candidateBuffer = useRef<RTCIceCandidate[]>([]);
+
+  const setOnIceCandidate = useCallback(
+    (handler: (candidate: RTCIceCandidate) => void) => {
+      candidateHandler.current = handler;
+      // Flush buffer
+      candidateBuffer.current.forEach(handler);
+      candidateBuffer.current = [];
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!localStream) return;
@@ -56,22 +70,29 @@ export function WebRTCProvider({
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        onIceCandidate(event.candidate);
+        if (candidateHandler.current) {
+          candidateHandler.current(event.candidate);
+        } else {
+          candidateBuffer.current.push(event.candidate);
+        }
       }
     };
 
+    const remoteMediaStream = new MediaStream();
+    setRemoteStream(remoteMediaStream);
+
     pc.ontrack = (event) => {
-      const stream = new MediaStream();
       event.streams[0].getTracks().forEach((track) => {
-        stream.addTrack(track);
+        if (!remoteMediaStream.getTracks().find((t) => t.id === track.id)) {
+          remoteMediaStream.addTrack(track);
+        }
       });
-      setRemoteStream(stream);
     };
 
     return () => {
       pc.close();
     };
-  }, [localStream, onIceCandidate]);
+  }, [localStream]);
 
   const createOffer = useCallback(async () => {
     if (!peerConnection.current)
@@ -135,6 +156,7 @@ export function WebRTCProvider({
     setRemoteDescription,
     remoteStream,
     closeConnection,
+    setOnIceCandidate,
   };
 
   return (

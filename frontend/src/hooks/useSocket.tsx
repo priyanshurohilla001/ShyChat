@@ -191,7 +191,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         callback?.({ success: false, error: NOT_CONNECTED_ERROR });
         return;
       }
-      socket.emit("start", undefined, callback);
+      socket.emit("start", callback);
     },
     [socket],
   );
@@ -202,7 +202,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         callback?.({ success: false, error: NOT_CONNECTED_ERROR });
         return;
       }
-      socket.emit("leave", undefined, callback);
+      socket.emit("leave", callback);
     },
     [socket],
   );

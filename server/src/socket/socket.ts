@@ -21,6 +21,10 @@ export function setupSocket(
 
       // ─── JOIN ─────────────────────────
       socket.on("join", (payload, callback) => {
+        if (typeof callback !== "function") {
+          console.warn("No callback function provided for join");
+          return;
+        }
         const parsedResult = JoinPayloadSchema.safeParse(payload);
 
         if (!parsedResult.success) {
@@ -48,6 +52,10 @@ export function setupSocket(
 
       // ─── START ────────────────────────
       socket.on("start", (callback) => {
+        if (typeof callback !== "function") {
+          console.warn("No callback function provided for start");
+          return;
+        }
         const updateRes = userService.updateUser(userId, {
           status: "searching",
         });
@@ -74,6 +82,10 @@ export function setupSocket(
 
       // ─── LEAVE ────────────────────────
       socket.on("leave", (callback) => {
+        if (typeof callback !== "function") {
+          console.warn("No callback function provided for leave");
+          return;
+        }
         const res = matchService.leave(userId);
         if (!res.success) {
           return callback({ success: false, error: res.error });
