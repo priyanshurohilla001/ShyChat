@@ -63,11 +63,13 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
 
   // When we get peer id provide webrtchook handler
   useEffect(() => {
-    if (!peerId) return;
+    if (!peerId) {
+      return;
+    }
     setOnIceCandidate((candidate) => {
       emitIce(peerId, candidate);
     });
-  }, [peerId]);
+  }, [peerId, setOnIceCandidate, emitIce]);
 
   // on Mount
   useEffect(() => {
@@ -91,8 +93,6 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
         gender: "any",
       },
     };
-
-    console.log("Join payload ready");
 
     emitJoin(payload, (res) => {
       if (!res.success) {
@@ -160,12 +160,18 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   turnCameraOn,
   */
 
-  // When match found, create and send offer
+  // When match found, create and send offer (server designates caller)
   useEffect(() => {
     const unsub = onMatchFound(async ({ peerId: id }) => {
       setPeerId(id);
-      const offer = await createOffer();
-      emitOffer(id, offer);
+
+      try {
+        const offer = await createOffer();
+        emitOffer(id, offer);
+      } catch (error) {
+        console.error("[Dock] Failed to create/send offer:", error);
+        toast.error("Failed to establish connection");
+      }
     });
     return unsub;
   }, [onMatchFound, createOffer, emitOffer]);
@@ -174,10 +180,16 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   useEffect(() => {
     const unsub = onOffer(async ({ from, offer }) => {
       setPeerId(from);
-      await setRemoteDescription(offer);
-      const answer = await createAnswer(offer);
-      emitAnswer(from, answer);
-      setDockState("InCallDock");
+
+      try {
+        await setRemoteDescription(offer);
+        const answer = await createAnswer(offer);
+        emitAnswer(from, answer);
+        setDockState("InCallDock");
+      } catch (error) {
+        console.error("[Dock] Failed to handle offer:", error);
+        toast.error("Failed to establish connection");
+      }
     });
     return unsub;
   }, [onOffer, setRemoteDescription, createAnswer, emitAnswer]);
@@ -185,8 +197,13 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   // When receiving answer, set remote description
   useEffect(() => {
     const unsub = onAnswer(async ({ answer }) => {
-      await setRemoteDescription(answer);
-      setDockState("InCallDock");
+      try {
+        await setRemoteDescription(answer);
+        setDockState("InCallDock");
+      } catch (error) {
+        console.error("[Dock] Failed to handle answer:", error);
+        toast.error("Failed to establish connection");
+      }
     });
     return unsub;
   }, [onAnswer, setRemoteDescription]);
@@ -194,7 +211,12 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   // ICE candidates
   useEffect(() => {
     const unsub = onIceCandidate(async ({ candidate }) => {
-      await addIceCandidate(candidate);
+      try {
+        await addIceCandidate(candidate);
+      } catch (error) {
+        console.error("[Dock] Failed to add ICE candidate:", error);
+        // Don't show toast for ICE candidate errors as they're common
+      }
     });
     return unsub;
   }, [onIceCandidate, addIceCandidate]);
@@ -203,13 +225,15 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   useEffect(() => {
     const unsub = onPeerLeft(() => {
       setDockState("StartMatchmakingDock");
+      closeConnection();
       setPeerId(null);
+      setRemoteStream(null);
       toast.error(
-        "Peer disappeared—probably realized attendance isn’t mandatory here 🤷‍♂️",
+        "Peer disappeared—probably realized attendance isn't mandatory here 🤷‍♂️",
       );
     });
     return unsub;
-  }, [onPeerLeft]);
+  }, [onPeerLeft, closeConnection, setRemoteStream]);
 
   // Update parent with new remote stream from WebRTC
   useEffect(() => {
@@ -221,8 +245,6 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   const handleMuteToggle = () => (isAudioMuted ? unmuteAudio() : muteAudio());
   const handleVideoToggle = () =>
     isCameraOff ? turnCameraOn() : turnCameraOff();
-
-  console.log(dockState);
 
   if (dockState == "InCallDock") {
     return (

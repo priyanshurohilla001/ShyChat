@@ -59,7 +59,9 @@ export function WebRTCProvider({
   );
 
   useEffect(() => {
-    if (!localStream) return;
+    if (!localStream) {
+      return;
+    }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnection.current = pc;
@@ -78,15 +80,40 @@ export function WebRTCProvider({
       }
     };
 
-    const remoteMediaStream = new MediaStream();
+    let remoteMediaStream = new MediaStream();
     setRemoteStream(remoteMediaStream);
 
     pc.ontrack = (event) => {
+      // Create a new MediaStream with all existing tracks plus the new one
+      const newRemoteStream = new MediaStream();
+
+      // Add existing tracks
+      remoteMediaStream.getTracks().forEach((track) => {
+        newRemoteStream.addTrack(track);
+      });
+
+      // Add new tracks from the event
       event.streams[0].getTracks().forEach((track) => {
-        if (!remoteMediaStream.getTracks().find((t) => t.id === track.id)) {
-          remoteMediaStream.addTrack(track);
+        if (!newRemoteStream.getTracks().find((t) => t.id === track.id)) {
+          newRemoteStream.addTrack(track);
         }
       });
+
+      // Update the stream reference and state
+      remoteMediaStream = newRemoteStream;
+      setRemoteStream(newRemoteStream);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "failed") {
+        console.error("[WebRTC] Peer connection failed!");
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed") {
+        console.error("[WebRTC] ICE connection failed!");
+      }
     };
 
     return () => {
@@ -95,8 +122,12 @@ export function WebRTCProvider({
   }, [localStream]);
 
   const createOffer = useCallback(async () => {
-    if (!peerConnection.current)
+    if (!peerConnection.current) {
+      console.error(
+        "[WebRTC] Cannot create offer: peer connection not initialized",
+      );
       throw new Error("Peer connection not initialized");
+    }
 
     const offer = await peerConnection.current.createOffer();
     await peerConnection.current.setLocalDescription(offer);
@@ -105,12 +136,17 @@ export function WebRTCProvider({
   }, []);
 
   const createAnswer = useCallback(async (offer: RTCSessionDescriptionInit) => {
-    if (!peerConnection.current)
+    if (!peerConnection.current) {
+      console.error(
+        "[WebRTC] Cannot create answer: peer connection not initialized",
+      );
       throw new Error("Peer connection not initialized");
+    }
 
     await peerConnection.current.setRemoteDescription(
       new RTCSessionDescription(offer),
     );
+
     const answer = await peerConnection.current.createAnswer();
     await peerConnection.current.setLocalDescription(answer);
 
@@ -119,8 +155,12 @@ export function WebRTCProvider({
 
   const setRemoteDescription = useCallback(
     async (desc: RTCSessionDescriptionInit) => {
-      if (!peerConnection.current)
+      if (!peerConnection.current) {
+        console.error(
+          "[WebRTC] Cannot set remote description: peer connection not initialized",
+        );
         throw new Error("Peer connection not initialized");
+      }
 
       await peerConnection.current.setRemoteDescription(
         new RTCSessionDescription(desc),
@@ -131,8 +171,12 @@ export function WebRTCProvider({
 
   const addIceCandidate = useCallback(
     async (candidate: RTCIceCandidateInit) => {
-      if (!peerConnection.current)
+      if (!peerConnection.current) {
+        console.error(
+          "[WebRTC] Cannot add ICE candidate: peer connection not initialized",
+        );
         throw new Error("Peer connection not initialized");
+      }
 
       await peerConnection.current.addIceCandidate(
         new RTCIceCandidate(candidate),
@@ -147,6 +191,8 @@ export function WebRTCProvider({
       peerConnection.current = null;
     }
     setRemoteStream(null);
+    candidateHandler.current = null;
+    candidateBuffer.current = [];
   }, []);
 
   const value = {

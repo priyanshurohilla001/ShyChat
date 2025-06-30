@@ -25,29 +25,39 @@ export function setupSocket(
           console.warn("No callback function provided for join");
           return;
         }
-        const parsedResult = JoinPayloadSchema.safeParse(payload);
 
-        if (!parsedResult.success) {
-          console.error("Zod validation failed:", parsedResult.error.errors);
-          return callback({
-            success: false,
-            error: "Invalid payload: " + parsedResult.error.message,
-          });
+        try {
+          const parsedResult = JoinPayloadSchema.safeParse(payload);
+
+          if (!parsedResult.success) {
+            console.error("Zod validation failed:", parsedResult.error.errors);
+            return callback({
+              success: false,
+              error: "Invalid payload: " + parsedResult.error.message,
+            });
+          }
+
+          const join: JoinPayload = parsedResult.data;
+
+          const res = userService.addUser(
+            userId,
+            join.identity,
+            join.preferences,
+          );
+          if (!res.success) {
+            console.error(`Failed to add user ${userId}:`, res.error);
+            return callback({ success: false, error: res.error });
+          }
+
+          console.log(`User joined: ${userId}`, join);
+          return callback({ success: true });
+        } catch (error) {
+          console.error(
+            `Unexpected error in join handler for ${userId}:`,
+            error,
+          );
+          return callback({ success: false, error: "Internal server error" });
         }
-
-        const join: JoinPayload = parsedResult.data;
-
-        const res = userService.addUser(
-          userId,
-          join.identity,
-          join.preferences,
-        );
-        if (!res.success) {
-          return callback({ success: false, error: res.error });
-        }
-
-        console.log(`User joined: ${userId}`, join);
-        return callback({ success: true });
       });
 
       // ─── START ────────────────────────
@@ -56,28 +66,65 @@ export function setupSocket(
           console.warn("No callback function provided for start");
           return;
         }
-        const updateRes = userService.updateUser(userId, {
-          status: "searching",
-        });
-        if (!updateRes.success) {
-          return callback({ success: false, error: updateRes.error });
-        }
 
-        const res = matchService.startSearch(userId);
-        if (!res.success) {
-          return callback({ success: false, error: res.error });
-        }
+        try {
+          console.log(`User ${userId} starting matchmaking search`);
 
-        // If a match is found immediately:
-        if (res.data) {
-          socket.emit("match_found", { peerId: res.data });
-          socket.to(res.data).emit("match_found", { peerId: userId });
-          console.log(`Matched: ${userId} ↔ ${res.data}`);
-          return callback({ success: true, data: { matchId: res.data } });
-        }
+          const updateRes = userService.updateUser(userId, {
+            status: "searching",
+          });
+          if (!updateRes.success) {
+            console.error(
+              `Failed to update user ${userId} to searching:`,
+              updateRes.error,
+            );
+            return callback({ success: false, error: updateRes.error });
+          }
 
-        // No match yet, keep searching
-        return callback({ success: true });
+          const res = matchService.startSearch(userId);
+          if (!res.success) {
+            console.error(`Match search failed for ${userId}:`, res.error);
+            return callback({ success: false, error: res.error });
+          }
+
+          // If a match is found immediately:
+          if (res.data) {
+            console.log(
+              `Match found! Assigning caller role: ${userId} ↔ ${res.data}`,
+            );
+
+            // Determine caller based on lexicographic comparison to avoid glare condition
+            // The user with smaller ID becomes the caller
+            const isUserCaller = userId < res.data;
+
+            if (isUserCaller) {
+              // Current user is caller - gets match_found event to create offer
+              socket.emit("match_found", { peerId: res.data });
+              console.log(`${userId} designated as CALLER, will create offer`);
+            } else {
+              // Matched user is caller - gets match_found event to create offer
+              socket.to(res.data).emit("match_found", { peerId: userId });
+              console.log(
+                `${res.data} designated as CALLER, will create offer`,
+              );
+            }
+
+            console.log(
+              `Successfully set up caller/callee roles for: ${userId} ↔ ${res.data}`,
+            );
+            return callback({ success: true, data: { matchId: res.data } });
+          }
+
+          // No match yet, keep searching
+          console.log(`No immediate match for ${userId}, added to search pool`);
+          return callback({ success: true });
+        } catch (error) {
+          console.error(
+            `Unexpected error in start handler for ${userId}:`,
+            error,
+          );
+          return callback({ success: false, error: "Internal server error" });
+        }
       });
 
       // ─── LEAVE ────────────────────────
@@ -86,60 +133,184 @@ export function setupSocket(
           console.warn("No callback function provided for leave");
           return;
         }
-        const res = matchService.leave(userId);
-        if (!res.success) {
-          return callback({ success: false, error: res.error });
+
+        try {
+          console.log(`User ${userId} leaving matchmaking search`);
+
+          const res = matchService.leave(userId);
+          if (!res.success) {
+            console.error(
+              `Failed to remove user ${userId} from search:`,
+              res.error,
+            );
+            return callback({ success: false, error: res.error });
+          }
+
+          console.log(`User left search: ${userId}`);
+          return callback({ success: true });
+        } catch (error) {
+          console.error(
+            `Unexpected error in leave handler for ${userId}:`,
+            error,
+          );
+          return callback({ success: false, error: "Internal server error" });
         }
-        console.log(`User left search: ${userId}`);
-        return callback({ success: true });
       });
 
       // ─── DISCONNECT ───────────────────
       socket.on("disconnect", () => {
         console.log(`Client disconnected: ${userId}`);
-        matchService.handleDisconnect(userId);
+        try {
+          matchService.handleDisconnect(userId);
+          console.log(`Successfully handled disconnect for user: ${userId}`);
+        } catch (error) {
+          console.error(`Error handling disconnect for ${userId}:`, error);
+        }
       });
 
       // ─── END-CALL ─────────────────────
       socket.on("end-call", () => {
-        const userRes = userService.getUser(userId);
-        if (!userRes.success) return;
-        const user = userRes.data;
-        if (!user.peerId) return;
+        try {
+          console.log(`User ${userId} ending call`);
 
-        const peerRes = userService.getUser(user.peerId);
-        if (peerRes.success) {
-          // Reset both users
-          userService.updateUser(userId, { status: "idle", peerId: null });
-          userService.updateUser(peerRes.data.id, {
-            status: "idle",
-            peerId: null,
-          });
-          socket.to(peerRes.data.id).emit("peer_left");
-          console.log(`Call ended: ${userId} ↔ ${peerRes.data.id}`);
+          const userRes = userService.getUser(userId);
+          if (!userRes.success) {
+            console.error(`User ${userId} not found when ending call`);
+            return;
+          }
+
+          const user = userRes.data;
+          if (!user.peerId) {
+            console.log(`User ${userId} has no peer to disconnect from`);
+            return;
+          }
+
+          const peerRes = userService.getUser(user.peerId);
+          if (peerRes.success) {
+            const peerId = peerRes.data.id;
+
+            // Reset both users
+            userService.updateUser(userId, { status: "idle", peerId: null });
+            userService.updateUser(peerId, { status: "idle", peerId: null });
+
+            // Notify peer
+            socket.to(peerId).emit("peer_left");
+
+            console.log(`Call ended successfully: ${userId} ↔ ${peerId}`);
+          } else {
+            console.error(
+              `Peer ${user.peerId} not found when ending call for ${userId}`,
+            );
+          }
+        } catch (error) {
+          console.error(`Error handling end-call for ${userId}:`, error);
         }
       });
 
       // ─── WEBRTC SIGNALING ─────────────
       socket.on("offer", (data) => {
-        if (data && typeof data.to === "string" && data.offer) {
+        try {
+          if (!data) {
+            console.error(
+              `Invalid offer data from ${userId}: data is null/undefined`,
+            );
+            return;
+          }
+
+          if (typeof data.to !== "string") {
+            console.error(
+              `Invalid offer from ${userId}: 'to' field must be string, got:`,
+              typeof data.to,
+            );
+            return;
+          }
+
+          if (!data.offer) {
+            console.error(
+              `Invalid offer from ${userId}: 'offer' field is missing`,
+            );
+            return;
+          }
+
+          console.log(`Forwarding offer from ${userId} to ${data.to}`);
           socket.to(data.to).emit("offer", { from: userId, offer: data.offer });
+          console.log(
+            `Offer forwarded successfully from ${userId} to ${data.to}`,
+          );
+        } catch (error) {
+          console.error(`Error handling offer from ${userId}:`, error);
         }
       });
 
       socket.on("answer", (data) => {
-        if (data && typeof data.to === "string" && data.answer) {
+        try {
+          if (!data) {
+            console.error(
+              `Invalid answer data from ${userId}: data is null/undefined`,
+            );
+            return;
+          }
+
+          if (typeof data.to !== "string") {
+            console.error(
+              `Invalid answer from ${userId}: 'to' field must be string, got:`,
+              typeof data.to,
+            );
+            return;
+          }
+
+          if (!data.answer) {
+            console.error(
+              `Invalid answer from ${userId}: 'answer' field is missing`,
+            );
+            return;
+          }
+
+          console.log(`Forwarding answer from ${userId} to ${data.to}`);
           socket
             .to(data.to)
             .emit("answer", { from: userId, answer: data.answer });
+          console.log(
+            `Answer forwarded successfully from ${userId} to ${data.to}`,
+          );
+        } catch (error) {
+          console.error(`Error handling answer from ${userId}:`, error);
         }
       });
 
       socket.on("ice-candidate", (data) => {
-        if (data && typeof data.to === "string" && data.candidate) {
+        try {
+          if (!data) {
+            console.error(
+              `Invalid ice-candidate data from ${userId}: data is null/undefined`,
+            );
+            return;
+          }
+
+          if (typeof data.to !== "string") {
+            console.error(
+              `Invalid ice-candidate from ${userId}: 'to' field must be string, got:`,
+              typeof data.to,
+            );
+            return;
+          }
+
+          if (!data.candidate) {
+            console.error(
+              `Invalid ice-candidate from ${userId}: 'candidate' field is missing`,
+            );
+            return;
+          }
+
+          console.log(`Forwarding ICE candidate from ${userId} to ${data.to}`);
           socket
             .to(data.to)
             .emit("ice-candidate", { from: userId, candidate: data.candidate });
+          console.log(
+            `ICE candidate forwarded successfully from ${userId} to ${data.to}`,
+          );
+        } catch (error) {
+          console.error(`Error handling ice-candidate from ${userId}:`, error);
         }
       });
     },

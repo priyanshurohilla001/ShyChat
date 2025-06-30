@@ -10,7 +10,13 @@ import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
 
 // --- Configuration ---
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
+const SOCKET_URL =
+  window.location.protocol +
+  "//" +
+  window.location.hostname +
+  ":" +
+  window.location.port;
+
 const NOT_CONNECTED_ERROR = "Not connected to server";
 
 // --- Type Definitions ---
@@ -151,20 +157,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const connect = useCallback(() => {
-    console.log("[SocketProvider] connect() called");
-    console.log("[SocketProvider] Current socket instance:", socket);
     if (socket && !socket.connected) {
       setIsLoading(true);
-      console.log(
-        "[SocketProvider] Attempting to connect. Socket connected before connect():",
-        socket.connected,
-      );
-
       socket.connect();
-      console.log(
-        "[SocketProvider] connect() called. Socket connected after connect():",
-        socket.connected,
-      );
     }
   }, [socket]);
 
@@ -177,6 +172,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitJoin = useCallback(
     (payload: JoinPayload, callback?: (res: SocketAckResponse) => void) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit join: socket not connected");
         callback?.({ success: false, error: NOT_CONNECTED_ERROR });
         return;
       }
@@ -188,6 +184,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitStart = useCallback(
     (callback?: (res: SocketAckResponse<{ matchId?: string }>) => void) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit start: socket not connected");
         callback?.({ success: false, error: NOT_CONNECTED_ERROR });
         return;
       }
@@ -199,6 +196,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitLeave = useCallback(
     (callback?: (res: SocketAckResponse) => void) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit leave: socket not connected");
         callback?.({ success: false, error: NOT_CONNECTED_ERROR });
         return;
       }
@@ -209,6 +207,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const emitEndCall = useCallback(() => {
     if (!socket || !socket.connected) {
+      console.error("Cannot emit end-call: socket not connected");
       return;
     }
     socket.emit("end-call");
@@ -217,6 +216,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitOffer = useCallback(
     (to: string, offer: RTCSessionDescriptionInit) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit offer: socket not connected");
         return;
       }
       socket.emit("offer", { to, offer });
@@ -227,6 +227,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitAnswer = useCallback(
     (to: string, answer: RTCSessionDescriptionInit) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit answer: socket not connected");
         return;
       }
       socket.emit("answer", { to, answer });
@@ -237,6 +238,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const emitIce = useCallback(
     (to: string, candidate: RTCIceCandidateInit) => {
       if (!socket || !socket.connected) {
+        console.error("Cannot emit ice-candidate: socket not connected");
         return;
       }
       socket.emit("ice-candidate", { to, candidate });

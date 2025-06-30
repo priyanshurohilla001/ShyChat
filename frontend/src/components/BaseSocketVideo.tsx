@@ -28,12 +28,13 @@ const BaseSocketVideo: React.FC = () => {
       <Header />
 
       <main className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pb-6 pt-4">
-        <VideoBox stream={stream} mirrored muted>
+        <VideoBox stream={stream} label="You">
           <div className="text-muted-foreground">Waiting for camera...</div>
         </VideoBox>
-        <VideoBox stream={remoteStream} mirrored={false} muted={false}>
-          <div className="text-muted-foreground">
-            Waiting for remote user...
+        <VideoBox stream={remoteStream} label="Peer" mirrored={false}>
+          <div className="text-center text-muted-foreground">
+            <p className="font-semibold">Waiting for peer...</p>
+            <p className="text-xs">No video stream yet</p>
           </div>
         </VideoBox>
       </main>
