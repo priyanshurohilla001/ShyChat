@@ -163,7 +163,13 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   // When match found, create and send offer (server designates caller)
   useEffect(() => {
     const unsub = onMatchFound(async ({ peerId: id }) => {
+      // Clean up any existing connection first
+      closeConnection();
+      setRemoteStream(null);
       setPeerId(id);
+
+      // Small delay to ensure cleanup is complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       try {
         const offer = await createOffer();
@@ -171,15 +177,24 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       } catch (error) {
         console.error("[Dock] Failed to create/send offer:", error);
         toast.error("Failed to establish connection");
+        // Reset state on failure
+        setPeerId(null);
+        setDockState("StartMatchmakingDock");
       }
     });
     return unsub;
-  }, [onMatchFound, createOffer, emitOffer]);
+  }, [onMatchFound, createOffer, emitOffer, closeConnection, setRemoteStream]);
 
   // When receiving offer, respond with answer
   useEffect(() => {
     const unsub = onOffer(async ({ from, offer }) => {
+      // Clean up any existing connection first
+      closeConnection();
+      setRemoteStream(null);
       setPeerId(from);
+
+      // Small delay to ensure cleanup is complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       try {
         await setRemoteDescription(offer);
@@ -189,10 +204,20 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       } catch (error) {
         console.error("[Dock] Failed to handle offer:", error);
         toast.error("Failed to establish connection");
+        // Reset state on failure
+        setPeerId(null);
+        setDockState("StartMatchmakingDock");
       }
     });
     return unsub;
-  }, [onOffer, setRemoteDescription, createAnswer, emitAnswer]);
+  }, [
+    onOffer,
+    setRemoteDescription,
+    createAnswer,
+    emitAnswer,
+    closeConnection,
+    setRemoteStream,
+  ]);
 
   // When receiving answer, set remote description
   useEffect(() => {
@@ -203,6 +228,9 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       } catch (error) {
         console.error("[Dock] Failed to handle answer:", error);
         toast.error("Failed to establish connection");
+        // Reset state on failure
+        setPeerId(null);
+        setDockState("StartMatchmakingDock");
       }
     });
     return unsub;

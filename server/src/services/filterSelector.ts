@@ -48,25 +48,16 @@ export class SimpleFilterSelector implements MatchSelector {
 
         const subset = pool.getRandomSubset(10);
 
-        for (const gender of genderPrefs) {
-          for (const year of yearPrefs) {
-            const poolKey = `${gender}_${year}`;
-            const pool = this.poolManager.getPool(poolKey);
-            if (!pool || pool.size() === 0) continue;
+        for (const candidateId of subset) {
+          if (!candidateId || candidateId === user.id) continue;
 
-            const subset = pool.getRandomSubset(10);
-            for (const candidateId of subset) {
-              if (!candidateId || candidateId === user.id) continue;
+          const candidateResult = this.userService.getUser(candidateId);
+          if (!candidateResult.success) continue;
 
-              const candidateResult = this.userService.getUser(candidateId);
-              if (!candidateResult.success) continue;
+          const candidate = candidateResult.data;
 
-              const candidate = candidateResult.data;
-
-              if (this.isMutualMatch(candidate, user)) {
-                return candidateId;
-              }
-            }
+          if (this.isMutualMatch(candidate, user)) {
+            return candidateId;
           }
         }
       }

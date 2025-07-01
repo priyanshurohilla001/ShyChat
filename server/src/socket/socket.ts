@@ -84,6 +84,8 @@ export function setupSocket(
           const res = matchService.startSearch(userId);
           if (!res.success) {
             console.error(`Match search failed for ${userId}:`, res.error);
+            // Revert user status on match failure
+            userService.updateUser(userId, { status: "idle" });
             return callback({ success: false, error: res.error });
           }
 
@@ -99,19 +101,77 @@ export function setupSocket(
 
             if (isUserCaller) {
               // Current user is caller - gets match_found event to create offer
-              socket.emit("match_found", { peerId: res.data });
-              console.log(`${userId} designated as CALLER, will create offer`);
+              try {
+                socket.emit("match_found", { peerId: res.data });
+                console.log(
+                  `${userId} designated as CALLER, will create offer`,
+                );
+              } catch (emitError) {
+                console.error(
+                  `Failed to emit match_found to ${userId}:`,
+                  emitError,
+                );
+                // Cleanup the match since we couldn't notify the user
+                matchService.handleDisconnect(userId);
+                return callback({
+                  success: false,
+                  error: "Failed to notify user of match",
+                });
+              }
             } else {
               // Matched user is caller - gets match_found event to create offer
-              socket.to(res.data).emit("match_found", { peerId: userId });
-              console.log(
-                `${res.data} designated as CALLER, will create offer`,
-              );
+              try {
+                const targetSocket = socket.to(res.data);
+                if (!targetSocket) {
+                  console.error(
+                    `Target socket ${res.data} not found for match notification`,
+                  );
+                  // Cleanup both users since we couldn't notify the matched user
+                  matchService.handleDisconnect(userId);
+                  matchService.handleDisconnect(res.data);
+                  return callback({
+                    success: false,
+                    error: "Matched user no longer available",
+                  });
+                }
+
+                targetSocket.emit("match_found", { peerId: userId });
+                console.log(
+                  `${res.data} designated as CALLER, will create offer`,
+                );
+              } catch (emitError) {
+                console.error(
+                  `Failed to emit match_found to ${res.data}:`,
+                  emitError,
+                );
+                // Cleanup both users since we couldn't notify the matched user
+                matchService.handleDisconnect(userId);
+                matchService.handleDisconnect(res.data);
+                return callback({
+                  success: false,
+                  error: "Failed to notify matched user",
+                });
+              }
             }
 
             console.log(
               `Successfully set up caller/callee roles for: ${userId} ↔ ${res.data}`,
             );
+
+            // Verify both users are still connected before completing the match
+            const finalUserCheck = userService.getUser(userId);
+            const finalMatchCheck = userService.getUser(res.data);
+
+            if (!finalUserCheck.success || !finalMatchCheck.success) {
+              console.error(
+                `User verification failed after match setup: ${userId} ↔ ${res.data}`,
+              );
+              return callback({
+                success: false,
+                error: "Match verification failed",
+              });
+            }
+
             return callback({ success: true, data: { matchId: res.data } });
           }
 

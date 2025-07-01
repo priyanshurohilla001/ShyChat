@@ -42,6 +42,7 @@ export function WebRTCProvider({
 } & UseWebRTCOptions) {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [connectionId, setConnectionId] = useState(0);
 
   const candidateHandler = useRef<
     ((candidate: RTCIceCandidate) => void) | null
@@ -61,6 +62,11 @@ export function WebRTCProvider({
   useEffect(() => {
     if (!localStream) {
       return;
+    }
+
+    // Close existing connection if any
+    if (peerConnection.current) {
+      peerConnection.current.close();
     }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -119,7 +125,7 @@ export function WebRTCProvider({
     return () => {
       pc.close();
     };
-  }, [localStream]);
+  }, [localStream, connectionId]);
 
   const createOffer = useCallback(async () => {
     if (!peerConnection.current) {
@@ -187,12 +193,22 @@ export function WebRTCProvider({
 
   const closeConnection = useCallback(() => {
     if (peerConnection.current) {
+      // Remove all event listeners
+      peerConnection.current.onicecandidate = null;
+      peerConnection.current.ontrack = null;
+      peerConnection.current.onconnectionstatechange = null;
+      peerConnection.current.oniceconnectionstatechange = null;
+
+      // Close the connection
       peerConnection.current.close();
       peerConnection.current = null;
     }
     setRemoteStream(null);
     candidateHandler.current = null;
     candidateBuffer.current = [];
+
+    // Force recreation of peer connection by incrementing connectionId
+    setConnectionId((prev) => prev + 1);
   }, []);
 
   const value = {
