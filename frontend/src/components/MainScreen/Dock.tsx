@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import InCallDock from "./Dock/InCallDock";
 import CancelMatchmakingDock from "./Dock/CancelMatchmakingDock";
 import StartMatchmakingDock from "./Dock/StartMatchmakingDock";
+import { useReaction } from "@/hooks/useReaction";
 
 interface DockProps {
   setRemoteStream: (stream: MediaStream | null) => void;
@@ -18,7 +19,7 @@ type DockState =
   | "InCallDock";
 
 export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
-  // Media controls
+  // Media permissions and local stream controls
   const {
     stream,
     isAudioMuted,
@@ -29,7 +30,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     turnCameraOn,
   } = useMediaPermissions();
 
-  // Socket controls
+  // Socket event handlers and emitters
   const {
     emitStart,
     emitLeave,
@@ -45,7 +46,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     onPeerLeft,
   } = useSocket();
 
-  // WebRTC controls
+  // WebRTC connection and signaling controls
   const {
     createOffer,
     createAnswer,
@@ -61,7 +62,9 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
   const [peerId, setPeerId] = useState<string | null>(null);
   const [dockState, setDockState] = useState<DockState>("StartMatchmakingDock");
 
-  // When we get peer id provide webrtchook handler
+  const { playReaction } = useReaction();
+
+  // Set up ICE candidate handler when peerId is available
   useEffect(() => {
     if (!peerId) {
       return;
@@ -71,7 +74,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     });
   }, [peerId, setOnIceCandidate, emitIce]);
 
-  // on Mount
+  // Join matchmaking on mount, leave on unmount
   useEffect(() => {
     if (!email) {
       toast.error("No email? Can't guess your year out of thin air 🕵️‍♂️");
@@ -82,6 +85,12 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       toast.error("That email doesn't vibe with any batch here. Try again 🎓");
       return;
     }
+
+    //testing the reaction
+    playReaction({
+      type: "lottie",
+      name: "welcome",
+    });
 
     const payload: JoinPayload = {
       identity: {
@@ -109,8 +118,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     };
   }, []);
 
-  // Start state
-  // Buttons : Start
+  // Handle start matchmaking action
   const handleStart = () => {
     setDockState("CancelMatchmakingDock");
 
@@ -130,8 +138,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     });
   };
 
-  // Searching for a match state
-  // button to cancel matchmaking
+  // Handle cancel matchmaking action
   const handleCancel = () => {
     setDockState("StartMatchmakingDock");
     emitLeave((res) => {
@@ -141,8 +148,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     });
   };
 
-  // in call
-  // buttons : stop the call , mute audio , unmute audio , hide camera , show camera
+  // Handle end call action and cleanup
   const handleStop = () => {
     setDockState("StartMatchmakingDock");
     emitEndCall();
@@ -152,24 +158,13 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     toast.success("Call ended.");
   };
 
-  // mute audio , unmute audio , hide camera , show camera
-  /*
-  muteAudio,
-  unmuteAudio,
-  turnCameraOff,
-  turnCameraOn,
-  */
+  // Audio and video toggle handlers
 
-  // When match found, create and send offer (server designates caller)
+  // When a match is found, clean up, set peer, and create/send offer
   useEffect(() => {
     const unsub = onMatchFound(async ({ peerId: id }) => {
-      // Clean up any existing connection first
       closeConnection();
-      setRemoteStream(null);
       setPeerId(id);
-
-      // Small delay to ensure cleanup is complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       try {
         const offer = await createOffer();
@@ -177,49 +172,38 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       } catch (error) {
         console.error("[Dock] Failed to create/send offer:", error);
         toast.error("Failed to establish connection");
-        // Reset state on failure
+        // Always clean up on failure
+        closeConnection();
         setPeerId(null);
         setDockState("StartMatchmakingDock");
       }
     });
     return unsub;
-  }, [onMatchFound, createOffer, emitOffer, closeConnection, setRemoteStream]);
+  }, [onMatchFound, createOffer, emitOffer, closeConnection]);
 
-  // When receiving offer, respond with answer
+  // When receiving an offer, clean up, set peer, and respond with answer
   useEffect(() => {
     const unsub = onOffer(async ({ from, offer }) => {
-      // Clean up any existing connection first
       closeConnection();
-      setRemoteStream(null);
       setPeerId(from);
 
-      // Small delay to ensure cleanup is complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       try {
-        await setRemoteDescription(offer);
         const answer = await createAnswer(offer);
         emitAnswer(from, answer);
         setDockState("InCallDock");
       } catch (error) {
         console.error("[Dock] Failed to handle offer:", error);
         toast.error("Failed to establish connection");
-        // Reset state on failure
+        // Always clean up on failure
+        closeConnection();
         setPeerId(null);
         setDockState("StartMatchmakingDock");
       }
     });
     return unsub;
-  }, [
-    onOffer,
-    setRemoteDescription,
-    createAnswer,
-    emitAnswer,
-    closeConnection,
-    setRemoteStream,
-  ]);
+  }, [onOffer, createAnswer, emitAnswer, closeConnection]);
 
-  // When receiving answer, set remote description
+  // When receiving an answer, set remote description and update state
   useEffect(() => {
     const unsub = onAnswer(async ({ answer }) => {
       try {
@@ -228,28 +212,29 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
       } catch (error) {
         console.error("[Dock] Failed to handle answer:", error);
         toast.error("Failed to establish connection");
-        // Reset state on failure
+        // Always clean up on failure
+        closeConnection();
         setPeerId(null);
         setDockState("StartMatchmakingDock");
       }
     });
     return unsub;
-  }, [onAnswer, setRemoteDescription]);
+  }, [onAnswer, setRemoteDescription, closeConnection]);
 
-  // ICE candidates
+  // Handle incoming ICE candidates
   useEffect(() => {
     const unsub = onIceCandidate(async ({ candidate }) => {
       try {
         await addIceCandidate(candidate);
       } catch (error) {
         console.error("[Dock] Failed to add ICE candidate:", error);
-        // Don't show toast for ICE candidate errors as they're common
+        // ICE candidate errors are common, no user toast
       }
     });
     return unsub;
   }, [onIceCandidate, addIceCandidate]);
 
-  // Handle peer leaving
+  // Handle peer leaving the call
   useEffect(() => {
     const unsub = onPeerLeft(() => {
       setDockState("StartMatchmakingDock");
@@ -263,7 +248,7 @@ export const Dock: React.FC<DockProps> = ({ setRemoteStream }) => {
     return unsub;
   }, [onPeerLeft, closeConnection, setRemoteStream]);
 
-  // Update parent with new remote stream from WebRTC
+  // Sync remote stream from WebRTC hook to parent
   useEffect(() => {
     if (webrtcRemoteStream) {
       setRemoteStream(webrtcRemoteStream);

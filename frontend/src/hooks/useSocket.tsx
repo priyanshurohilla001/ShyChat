@@ -17,6 +17,8 @@ const SOCKET_URL =
   ":" +
   window.location.port;
 
+// const SOCKET_URL = "https://localhost:3443";
+
 const NOT_CONNECTED_ERROR = "Not connected to server";
 
 // --- Type Definitions ---

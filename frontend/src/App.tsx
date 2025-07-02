@@ -3,6 +3,7 @@ import { useToken } from "./hooks/useToken";
 import "./App.css";
 import PreCallScreen from "./components/PreCallScreen";
 import { MediaPermissionsProvider } from "./hooks/useMediaPermissions";
+import { ReactionOverlay } from "./components/Reactions/ReactionOverlay";
 
 export default function App() {
   const { email } = useToken();
@@ -10,8 +11,11 @@ export default function App() {
   if (!email) return <LoginScreen />;
 
   return (
-    <MediaPermissionsProvider>
-      <PreCallScreen />
-    </MediaPermissionsProvider>
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <ReactionOverlay />
+      <MediaPermissionsProvider>
+        <PreCallScreen />
+      </MediaPermissionsProvider>
+    </div>
   );
 }
